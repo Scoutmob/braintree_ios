@@ -81,6 +81,10 @@
 - (void)viewDidLoad {
     [super viewDidLoad];
     self.tableView.backgroundView = nil;
+    
+    if ([self.tableView respondsToSelector:@selector(setSeparatorInset:)]) {
+        self.tableView.separatorInset = UIEdgeInsetsZero;
+    }
     if (!_cornerRadius) _cornerRadius = BT_DEFAULT_CORNER_RADIUS;
     if (!_viewBackgroundColor) _viewBackgroundColor = BT_DEFAULT_BACKGROUND_COLOR;
     [self setViewBackgroundColor:_viewBackgroundColor]; // Changes the display.
@@ -109,13 +113,21 @@
     _paymentFormView = [BTPaymentFormView paymentFormView];
     _paymentFormView.delegate = self;
     _paymentFormView.requestsZip = _requestsZipInManualCardEntry;
-    _paymentFormView.backgroundColor = [UIColor clearColor];
+    _paymentFormView.backgroundColor = [UIColor whiteColor];
+    _paymentFormView.layer.cornerRadius  = _cornerRadius;
+    _paymentFormView.layer.borderColor   = CELL_BORDER_COLOR;
+    _paymentFormView.layer.borderWidth   = 1;
+    _paymentFormView.layer.shadowRadius  = 1;
+    _paymentFormView.layer.shadowOpacity = 1;
+    _paymentFormView.layer.shadowColor   = [[UIColor whiteColor] CGColor];
+    _paymentFormView.layer.shadowOffset  = CGSizeMake(0, 1);
+    _paymentFormView.autoresizingMask = UIViewAutoresizingFlexibleWidth;
 
     // Create the checkbox view, if requested.
     if ([self showsVTCheckbox]) {
         // Set up the VTCheckboxView view
         _checkboxView = [_client checkboxView];
-        [_checkboxView setOrigin:CGPointMake(-1, 0)]; // -1 for left-side alignment
+        [_checkboxView setOrigin:CGPointZero];
         [_checkboxView setBackgroundColor:[UIColor clearColor]];
         [_checkboxView setTextColor:[UIColor grayColor]];
     }
@@ -294,15 +306,15 @@
 - (CGFloat)tableView:(UITableView *)tableView heightForRowAtIndexPath:(NSIndexPath *)indexPath {
     if (_hasPaymentMethods && indexPath.section == 0) {
         // VTCardView
-        return 74 - 6; //-6 to get nice-sized padding between VTCardView and "Submit New Card" button
+        return 82;
     } else if (indexPath.row == 0) {
         // BTPaymentFormView
-        return 40;
+        return 50;
     } else if (indexPath.row == 1) {
         // VTCheckbox (if available) and Submit button
         CGFloat height = ([self showsVTCheckbox] ? _checkboxView.frame.size.height : SUBMIT_BUTTON_TOP_PADDING)
                           + _submitButton.frame.size.height;
-        return height;
+        return height+10;
     }
 
     return 0;
@@ -363,62 +375,18 @@
         cell = [[UITableViewCell alloc] initWithStyle:UITableViewCellStyleDefault
                                       reuseIdentifier:currentCellIdentifier];
         cell.selectionStyle = UITableViewCellSelectionStyleNone;
-
-        if ([currentCellIdentifier isEqualToString:PaymentFormViewCellIdentifier]) {
-            [self setUpPaymentFormViewForCell:cell];
-        }
+        cell.backgroundColor = [UIColor clearColor];
     }
     
-    if ([currentCellIdentifier isEqualToString:UseCardCellIdentifier]) {
+    if ([currentCellIdentifier isEqualToString:PaymentFormViewCellIdentifier]) {
+        [self setUpPaymentFormViewForCell:cell];
+    } else if ([currentCellIdentifier isEqualToString:PaymentFormViewFooterCellIdentifier]) {
+        [self setUpPaymentFormFooterViewForCell:cell];
+    } else if ([currentCellIdentifier isEqualToString:UseCardCellIdentifier]) {
         [self setUpCardViewForCell:cell];
     }
 
     return cell;
-}
-
-- (void)tableView:(UITableView *)tableView willDisplayCell:(UITableViewCell *)cell forRowAtIndexPath:(NSIndexPath *)indexPath {
-    if (_hasPaymentMethods && indexPath.section == 0) {
-        // Venmo Touch row || checkbox + submit button row
-        cell.backgroundView = nil;
-    }
-    else if (indexPath.row == 0) {
-        // Customize the cell background view
-        if (cell.backgroundView.tag != CELL_BACKGROUND_VIEW_TAG) {
-            _cellBackgroundView = [[UIView alloc] initWithFrame:cell.frame];
-            _cellBackgroundView.backgroundColor = [UIColor whiteColor];
-            _cellBackgroundView.tag = CELL_BACKGROUND_VIEW_TAG;
-            _cellBackgroundView.layer.cornerRadius  = _cornerRadius;
-            _cellBackgroundView.layer.borderColor   = CELL_BORDER_COLOR;
-            _cellBackgroundView.layer.borderWidth   = 1;
-            _cellBackgroundView.layer.shadowRadius  = 1;
-            _cellBackgroundView.layer.shadowOpacity = 1;
-            _cellBackgroundView.layer.shadowColor   = [[UIColor whiteColor] CGColor];
-            _cellBackgroundView.layer.shadowOffset  = CGSizeMake(0, 1);
-            _cellBackgroundView.autoresizingMask = UIViewAutoresizingFlexibleWidth;
-
-            UIView *topShadowView = [[UIView alloc] initWithFrame:CGRectMake(3, 1, _cellBackgroundView.frame.size.width, 1)];
-            topShadowView.autoresizingMask = UIViewAutoresizingFlexibleWidth;
-            topShadowView.backgroundColor = [UIColor colorWithWhite:0 alpha:.1];
-            topShadowView.tag = CELL_BACKGROUND_VIEW_SHADOW_TAG;
-            [_cellBackgroundView addSubview:topShadowView];
-            [self adjustCellBackgroundViewShadow];
-
-            cell.backgroundView = nil;
-            cell.backgroundView = _cellBackgroundView;
-
-            [self setUpPaymentFormViewForCell:cell];
-        }
-    } else {
-        cell.backgroundView = nil;
-        CGFloat contentViewWidth = cell.contentView.frame.size.width;
-
-        [_checkboxView setWidth:contentViewWidth];
-        [cell.contentView addSubview:_checkboxView];
-
-        _submitButton.frame = CGRectMake(0, ([self showsVTCheckbox] ? _checkboxView.frame.size.height :SUBMIT_BUTTON_TOP_PADDING),
-                                         contentViewWidth, SUBMIT_BUTTON_HEIGHT);
-        [cell.contentView addSubview:_submitButton];
-    }
 }
 
 - (void)adjustCellBackgroundViewShadow {
@@ -449,8 +417,25 @@
 }
 
 - (void)setUpPaymentFormViewForCell:(UITableViewCell *)cell {
+    CGFloat contentViewWidth = cell.contentView.frame.size.width - 20;
+    
     [_paymentFormView removeFromSuperview];
+    _paymentFormView.frame = CGRectMake(10, 5, contentViewWidth, _paymentFormView.frame.size.height);
     [cell.contentView addSubview:_paymentFormView];
+}
+
+- (void)setUpPaymentFormFooterViewForCell:(UITableViewCell *)cell {
+    CGFloat contentViewWidth = cell.contentView.frame.size.width - 20;
+    
+    [_checkboxView removeFromSuperview];
+    [_checkboxView setWidth:contentViewWidth];
+    _checkboxView.frame = CGRectMake(10, _checkboxView.frame.origin.y, contentViewWidth, _checkboxView.frame.size.height);
+    [cell.contentView addSubview:_checkboxView];
+    
+    [_submitButton removeFromSuperview];
+    _submitButton.frame = CGRectMake(10, ([self showsVTCheckbox] ? _checkboxView.frame.size.height :SUBMIT_BUTTON_TOP_PADDING),
+                                     contentViewWidth, SUBMIT_BUTTON_HEIGHT);
+    [cell.contentView addSubview:_submitButton];
 }
 
 
